@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 关键：适配微信移动端 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>新年烟花 | 点击屏幕放烟花🎆</title>
+    <style>
+        /* 重置样式，适配全屏 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            background: #000; /* 黑色背景凸显烟花 */
+            touch-action: none; /* 禁止移动端触摸缩放，避免干扰 */
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* 提示文字（可选） */
+        .tip {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 16px;
+            text-shadow: 0 0 5px #ff0;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="tip">点击屏幕任意位置放烟花🎆</div>
+    <canvas id="fireworksCanvas"></canvas>
+
+    <script>
+        // 获取Canvas元素和上下文
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 适配屏幕大小（支持旋转屏幕）
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 随机数工具函数
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // 颜色工具函数（随机烟花颜色）
+        function randomColor() {
+            const colors = [
+                '#ff0000', '#ff9900', '#ffff00', '#00ff00',
+                '#0099ff', '#0033ff', '#9900ff', '#ff0099'
+            ];
+            return colors[Math.floor(random(0, colors.length))];
+        }
+
+        // 粒子类（烟花粒子）
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; // 初始x坐标
+                this.y = y; // 初始y坐标
+                this.speed = random(1, 5); // 粒子速度
+                this.angle = random(0, Math.PI * 2); // 粒子运动角度
+                this.gravity = 0.05; // 重力（让粒子有下坠效果）
+                this.vx = Math.cos(this.angle) * this.speed; // x方向速度
+                this.vy = Math.sin(this.angle) * this.speed; // y方向速度
+                this.alpha = 1; // 透明度（逐渐消失）
+                this.decay = random(0.005, 0.01); // 透明度衰减速度
+                this.color = color; // 粒子颜色
+            }
+
+            // 更新粒子位置和状态
+            update() {
+                // 加入重力，让粒子慢慢下坠
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                // 透明度逐渐降低
+                this.alpha -= this.decay;
+            }
+
+            // 绘制粒子
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); // 粒子大小为2px
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 存储所有烟花粒子
+        let particles = [];
+
+        // 创建烟花（点击时调用）
+        function createFirework(x, y) {
+            const color = randomColor(); // 随机烟花颜色
+            // 生成100-150个粒子（越多烟花越密）
+            const particleCount = random(100, 150);
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // 动画循环
+        function animate() {
+            // 半透明黑色背景，让烟花有拖影效果
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 更新并绘制所有粒子
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+
+                // 移除透明度为0的粒子，优化性能
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // 监听点击/触摸事件（适配PC和手机）
+        // PC端点击
+        canvas.addEventListener('click', (e) => {
+            createFirework(e.clientX, e.clientY);
+        });
+        // 移动端触摸
+        canvas.addEventListener('touchstart', (e) => {
+            // 阻止默认行为（避免微信跳转）
+            e.preventDefault();
+            const touch = e.touches[0];
+            createFirework(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        // 启动动画
+        animate();
+    </script>
+</body>
+</html>
