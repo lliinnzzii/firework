@@ -109,7 +109,7 @@
             const RISE_DURATION = 3000; // 缩短上升时间，提升流畅度
             const HEART_SCALE = 3.5;
             const TRAIL_DECAY = 0.06;
-            const TEXT_DECAY = 0.006; // 文字消失速度
+            const TEXT_DECAY = 0.007; // 文字消失速度
             let particles = [];
 
             // 画布适配
@@ -262,7 +262,7 @@
             // 【修改2】重构心形烟花：移除内部随机祝福，改为接收文本参数
             function createHeartFirework(x, y, wishText) {
                 const colorSet = getHeartColorSet();
-                const totalParticles = 600; // 减少粒子数，提升流畅度
+                const totalParticles = 500; // 减少粒子数，提升流畅度
                 // 核心粒子
                 for (let i = 0; i < totalParticles * 0.7; i++) {
                     const p = new Particle(x, y, colorSet.main, 2.5, 0.007);
@@ -333,7 +333,7 @@
             // 【修改5】改造自动燃放烟花：使用统一的生成逻辑
             function createAutoFireworkBatch() {
                 if (!isFirstFireworkDone) return;
-                const count = Math.floor(random(3, 8));
+                const count = Math.floor(random(3, 5));
                 for (let i = 0; i < count; i++) {
                     setTimeout(() => {
                         const x = random(canvas.width * 0.1, canvas.width * 0.9);
