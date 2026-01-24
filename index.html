@@ -64,13 +64,13 @@
     <!-- 闭合audio标签，避免HTML解析错误 -->
     <audio id="riseSound" preload="none" style="display: none;" volume="0.05">
         <source src="rise.mp3" type="audio/mpeg">
-    
+    </audio>
     <audio id="boomSound1" preload="none" style="display: none;" volume="1.0">
         <source src="boom1.mp3" type="audio/mpeg">
-    
+    </audio>
     <audio id="boomSound2" preload="none" style="display: none;" volume="1.0">
         <source src="boom2.mp3" type="audio/mpeg">
-    
+    </audio>
 
     <script>
         // 确保DOM加载完成后执行脚本
@@ -101,7 +101,7 @@
             const wishList = [
                 "新年快乐", "万事顺意", "朝朝暮暮", "一生被爱", "平安喜乐",
                 "前程似锦", "笑口常开", "心想事成", "喜乐无忧", "与你同喜",
-		"小薄同学", "小薄同学", "小薄同学", "小薄同学", "小薄同学"
+                "小薄同学", "小薄同学", "小薄同学", "小薄同学", "小薄同学"
             ];
             let wishTexts = []; // 存储文字对象
 
@@ -127,7 +127,7 @@
 
             // 工具函数
             function random(min, max) { return Math.random() * (max - min) + min; }
-            // 生成同色系颜色
+            // 生成同色系颜色（心形烟花）
             function getHeartColorSet() {
                 const baseHue = random(0, 360);
                 return {
@@ -211,12 +211,12 @@
                 }
             }
 
-            // 祝福语文字处理
-            function createWishText(x, y, color) {
+            // 【修改1】重构：接收指定的祝福语文本，不再随机生成
+            function createWishText(x, y, color, text) {
                 wishTexts.push({
                     x: x,
                     y: y,
-                    text: getRandomWish(),
+                    text: text, // 使用传入的指定文本
                     alpha: 1,
                     color: color,
                     size: getAdaptedTextSize()
@@ -259,8 +259,8 @@
                 }
             }
 
-            // 心形烟花
-            function createHeartFirework(x, y) {
+            // 【修改2】重构心形烟花：移除内部随机祝福，改为接收文本参数
+            function createHeartFirework(x, y, wishText) {
                 const colorSet = getHeartColorSet();
                 const totalParticles = 600; // 减少粒子数，提升流畅度
                 // 核心粒子
@@ -299,13 +299,13 @@
                     p.vy = (-ry * HEART_SCALE / 8) * random(0.8, 0.9) + 0.1;
                     particles.push(p);
                 }
-                // 显示祝福语
-                createWishText(x, y, colorSet.light);
+                // 显示指定的祝福语
+                createWishText(x, y, colorSet.light, wishText);
                 playBoomSound();
             }
 
-            // 普通烟花
-            function createNormalFirework(x, y) {
+            // 【修改3】重构普通烟花：移除内部随机祝福，改为接收文本参数
+            function createNormalFirework(x, y, wishText) {
                 const color = randomColor();
                 for (let i = 0; i < random(80, 120); i++) {
                     const p = new Particle(x, y, color);
@@ -313,11 +313,24 @@
                     p.vy = random(-4, 4) + random(0.1, 0.4);
                     particles.push(p);
                 }
-                createWishText(x, y, color);
+                // 显示指定的祝福语
+                createWishText(x, y, color, wishText);
                 playBoomSound();
             }
 
-            // 自动燃放烟花
+            // 【修改4】新增：统一的烟花生成逻辑（判断祝福类型，选择烟花样式）
+            function createFireworkByWish(x, y) {
+                // 先随机获取祝福语
+                const wishText = getRandomWish();
+                // 判断是否是“小薄同学”，是则生成心形，否则生成普通
+                if (wishText === "小薄同学") {
+                    createHeartFirework(x, y, wishText);
+                } else {
+                    createNormalFirework(x, y, wishText);
+                }
+            }
+
+            // 【修改5】改造自动燃放烟花：使用统一的生成逻辑
             function createAutoFireworkBatch() {
                 if (!isFirstFireworkDone) return;
                 const count = Math.floor(random(3, 8));
@@ -325,7 +338,8 @@
                     setTimeout(() => {
                         const x = random(canvas.width * 0.1, canvas.width * 0.9);
                         const y = random(canvas.height * 0.2, canvas.height * 0.7);
-                        createNormalFirework(x, y);
+                        // 调用统一逻辑生成烟花
+                        createFireworkByWish(x, y);
                     }, random(50, 200) * i);
                 }
             }
@@ -346,7 +360,8 @@
                     updateRiseTrail(currentY);
                     if (currentY <= explodeHeight) {
                         clearRiseTrail(); // 立即彻底清除轨迹，无残留
-                        createHeartFirework(firstFireworkX, explodeHeight);
+                        // 首个烟花固定用心形，随机选一个祝福
+                        createHeartFirework(firstFireworkX, explodeHeight, getRandomWish());
                         setTimeout(() => {
                             isFirstFireworkDone = true;
                             startAutoFirework();
@@ -356,10 +371,10 @@
                 }, 16);
             }
 
-            // 点击放烟花
+            // 【修改6】改造点击放烟花：使用统一的生成逻辑
             function clickToFirework(x, y) {
                 if (!isStarted || !isFirstFireworkDone) return;
-                createNormalFirework(x, y);
+                createFireworkByWish(x, y);
             }
 
             // 动画主循环 - 优化：轨迹为空则不绘制
