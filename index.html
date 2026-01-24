@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>新年烟花</title>
+    <title>新年烟花送祝福</title>
     <style>
         * {
             margin: 0;
@@ -19,6 +19,7 @@
             display: block;
             width: 100vw;
             height: 100vh;
+            background: #000; /* 强制初始黑色背景，避免黑屏 */
         }
         .start-tip {
             position: fixed;
@@ -56,219 +57,356 @@
     </style>
 </head>
 <body>
-    <div class="start-tip" id="startTip">请美女点击签收新年夜空</div>
-    <div class="running-tip" id="runningTip">新年快乐！点击放烟花呦~</div>
+    <div class="start-tip" id="startTip">点击签收</div>
+    <div class="running-tip" id="runningTip">点击可以放烟花呦~</div>
     <canvas id="fireworksCanvas"></canvas>
 
-    <!-- 【必改】替换为你的音效文件名 -->
-    <audio id="riseSound" preload="metadata" style="display: none;" volume="0.1">
+    <!-- 闭合audio标签，避免HTML解析错误 -->
+    <audio id="riseSound" preload="none" style="display: none;" volume="0.05">
         <source src="rise.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="boomSound1" preload="metadata" style="display: none;" volume="1.0">
+    
+    <audio id="boomSound1" preload="none" style="display: none;" volume="1.0">
         <source src="boom1.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="boomSound2" preload="metadata" style="display: none;" volume="1.0">
+    
+    <audio id="boomSound2" preload="none" style="display: none;" volume="1.0">
         <source src="boom2.mp3" type="audio/mpeg">
-    </audio>
+    
 
     <script>
-        // 核心元素与状态（严格流程控制）
-        const canvas = document.getElementById('fireworksCanvas');
-        const ctx = canvas.getContext('2d');
-        const startTip = document.getElementById('startTip');
-        const runningTip = document.getElementById('runningTip');
-        const riseSound = document.getElementById('riseSound');
-        const boomSound1 = document.getElementById('boomSound1');
-        const boomSound2 = document.getElementById('boomSound2');
-        
-        let isStarted = false;
-        let isFirstFireworkDone = false;
-        let autoTimer = null;
-        let riseTrailPoints = [];
-        let firstFireworkX = canvas.width / 2; // 首个烟花X：固定底部正中间
-        let explodeHeight = canvas.height / 2; // 爆炸高度：屏幕中间
-
-        // 【必改】适配你的rise.mp3准确时长（ms），用音频软件查看
-        const RISE_DURATION = 4000;
-        // 心形配置：旋转90°后可调整缩放（越大爱心越大）
-        const HEART_SCALE = 3;
-        // 优化：调大尾迹衰减速度，让粒子消失更快（从0.04→0.08，核心修改1）
-        const TRAIL_DECAY = 0.08;
-
-        // 画布适配：强制更新底部中间X和爆炸高度
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            firstFireworkX = canvas.width / 2; // 重算：屏幕水平正中间
-            explodeHeight = canvas.height / 2; // 重算：屏幕垂直中间
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // 工具函数
-        function random(min, max) { return Math.random() * (max - min) + min; }
-        function randomColor() {
-            const colors = ['#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff', '#0033ff', '#9900ff', '#ff0099'];
-            return colors[Math.floor(random(0, colors.length))];
-        }
-
-        // 音频逻辑（微信兼容+强制播放）
-        function forcePlayAudio(audio) {
-            if (!audio) return;
-            audio.currentTime = 0;
-            audio.play().then(() => {}).catch(() => { audio.load(); audio.play(); });
-        }
-        function unlockAllAudio() {
-            forcePlayAudio(riseSound); setTimeout(() => { riseSound.pause(); riseSound.currentTime = 0; }, 50);
-            forcePlayAudio(boomSound1); setTimeout(() => { boomSound1.pause(); boomSound1.currentTime = 0; }, 50);
-            forcePlayAudio(boomSound2); setTimeout(() => { boomSound2.pause(); boomSound2.currentTime = 0; }, 50);
-        }
-        function playRiseSound() {
-            forcePlayAudio(riseSound); setTimeout(() => { riseSound.pause(); }, RISE_DURATION);
-        }
-        function playBoomSound() {
-            forcePlayAudio(Math.random() > 0.5 ? boomSound1 : boomSound2);
-        }
-
-        // 粒子类
-        class Particle {
-            constructor(x, y, color, size = 2, decay = random(0.005, 0.01)) {
-                this.x = x; this.y = y; this.color = color; this.size = size;
-                this.alpha = 1; this.decay = decay; this.vx = 0; this.vy = 0;
+        // 确保DOM加载完成后执行脚本
+        document.addEventListener('DOMContentLoaded', function() {
+            // 核心元素与状态
+            const canvas = document.getElementById('fireworksCanvas');
+            const ctx = canvas.getContext('2d');
+            const startTip = document.getElementById('startTip');
+            const runningTip = document.getElementById('runningTip');
+            const riseSound = document.getElementById('riseSound');
+            const boomSound1 = document.getElementById('boomSound1');
+            const boomSound2 = document.getElementById('boomSound2');
+            
+            // 防错：确保画布上下文获取成功
+            if (!ctx) {
+                alert('您的浏览器不支持Canvas，无法显示烟花效果');
+                return;
             }
-            update() {
-                this.x += this.vx; this.y += this.vy; this.alpha = Math.max(0, this.alpha - this.decay);
+
+            let isStarted = false;
+            let isFirstFireworkDone = false;
+            let autoTimer = null;
+            let riseTrailPoints = [];
+            let riseInterval = null; // 新增：保存上升定时器，用于彻底清除
+            let firstFireworkX = canvas.width / 2;
+            let explodeHeight = canvas.height / 2;
+            // 祝福语数组
+            const wishList = [
+                "新年快乐", "万事顺意", "朝朝暮暮", "一生被爱", "平安喜乐",
+                "前程似锦", "笑口常开", "心想事成", "喜乐无忧", "与你同喜",
+		"小薄同学", "小薄同学", "小薄同学", "小薄同学", "小薄同学"
+            ];
+            let wishTexts = []; // 存储文字对象
+
+            // 配置参数（优化后更稳定）
+            const RISE_DURATION = 3000; // 缩短上升时间，提升流畅度
+            const HEART_SCALE = 3.5;
+            const TRAIL_DECAY = 0.06;
+            const TEXT_DECAY = 0.006; // 文字消失速度
+            let particles = [];
+
+            // 画布适配
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                firstFireworkX = canvas.width / 2;
+                explodeHeight = canvas.height / 2;
+                // 重绘黑色背景
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
-            draw() {
-                if (this.alpha <= 0) return;
-                ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // 工具函数
+            function random(min, max) { return Math.random() * (max - min) + min; }
+            // 生成同色系颜色
+            function getHeartColorSet() {
+                const baseHue = random(0, 360);
+                return {
+                    main: `hsl(${baseHue}, 100%, 60%)`,
+                    light: `hsl(${baseHue}, 100%, 75%)`,
+                    dark: `hsl(${baseHue}, 100%, 45%)`
+                };
             }
-        }
-        let particles = [];
-
-        // 上升轨迹：保留原有逻辑，帧级更新+过滤
-        function updateRiseTrail(y) {
-            riseTrailPoints.push(new Particle(firstFireworkX, y, randomColor(), 1, TRAIL_DECAY));
-            riseTrailPoints.forEach(p => p.update());
-            riseTrailPoints = riseTrailPoints.filter(p => p.alpha > 0);
-            riseTrailPoints.forEach(p => p.draw());
-        }
-
-        // 新增：尾迹强制清理函数（核心修改2）
-        function clearRiseTrail() {
-            // 遍历剩余尾迹，强制将衰减速度拉满，让粒子1-2帧内透明
-            riseTrailPoints.forEach(p => p.decay = 1);
-            // 立即更新+过滤一次
-            riseTrailPoints.forEach(p => p.update());
-            riseTrailPoints = riseTrailPoints.filter(p => p.alpha > 0);
-        }
-
-        // 核心：90°旋转心形烟花（横向爱心，尖朝右）+ 底部正中间上升
-        function createHeartFirework(x, y) {
-            const color = randomColor();
-            const particleCount = 500; // 心形粒子数，保证形状清晰
-            for (let i = 0; i < particleCount; i++) {
-                const p = new Particle(x, y, color, 2.5);
-                const theta = random(0, 2 * Math.PI);
-                const r = 16 * Math.pow(Math.sin(theta), 3);
-                const dx_org = 13 * Math.cos(theta) - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta);
-                const dx = -r * HEART_SCALE / 10;
-                const dy = -dx_org * HEART_SCALE / 10;
-                p.vx = dx;
-                p.vy = dy + random(0.1, 0.3);
-                particles.push(p);
+            // 随机获取祝福语
+            function getRandomWish() {
+                return wishList[Math.floor(random(0, wishList.length))];
             }
-            // 关键修改：在创建心形烟花粒子的同时播放爆炸音效
-            playBoomSound();
-        }
+            // 适配文字大小
+            function getAdaptedTextSize() {
+                const minSize = Math.min(canvas.width, canvas.height) * 0.02;
+                const maxSize = Math.min(canvas.width, canvas.height) * 0.035;
+                return random(minSize, maxSize);
+            }
+            // 随机颜色（普通烟花）
+            function randomColor() {
+                const colors = ['#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff', '#0033ff', '#9900ff', '#ff0099'];
+                return colors[Math.floor(random(0, colors.length))];
+            }
 
-        // 首个烟花：上升结束后立即调用尾迹清理（核心修改3）
-        function startFirstHeartFirework() {
-            let currentY = canvas.height;
-            const riseSpeed = (canvas.height - explodeHeight) / RISE_DURATION;
-            playRiseSound();
+            // 音频逻辑（增加容错，无音频不报错）
+            function forcePlayAudio(audio) {
+                if (!audio) return;
+                try {
+                    audio.currentTime = 0;
+                    audio.play().catch(() => {}); // 捕获错误，不阻塞动画
+                } catch (e) {}
+            }
+            function unlockAllAudio() {
+                forcePlayAudio(riseSound);
+                setTimeout(() => { riseSound.pause(); riseSound.currentTime = 0; }, 50);
+                forcePlayAudio(boomSound1);
+                setTimeout(() => { boomSound1.pause(); boomSound1.currentTime = 0; }, 50);
+                forcePlayAudio(boomSound2);
+                setTimeout(() => { boomSound2.pause(); boomSound2.currentTime = 0; }, 50);
+            }
+            function playRiseSound() { forcePlayAudio(riseSound); setTimeout(() => { riseSound.pause(); }, RISE_DURATION); }
+            function playBoomSound() { forcePlayAudio(Math.random() > 0.5 ? boomSound1 : boomSound2); }
 
-            const riseInterval = setInterval(() => {
-                currentY -= riseSpeed * 16;
-                updateRiseTrail(currentY);
-                if (currentY <= explodeHeight) {
-                    clearInterval(riseInterval);
-                    // 上升停止：立即清理一次尾迹
-                    clearRiseTrail();
-                    createHeartFirework(firstFireworkX, explodeHeight);
-                    // 移除原有的playBoomSound()调用，统一移到createHeartFirework函数内
-                    // 心形爆炸消失后，再强制清理一次尾迹（双重保障）
-                    setTimeout(() => {
-                        clearRiseTrail();
-                        isFirstFireworkDone = true;
-                        startAutoFirework();
-                        runningTip.classList.add('show');
-                    }, 1000);
+            // 粒子类
+            class Particle {
+                constructor(x, y, color, size = 2, decay = random(0.004, 0.008), isHighlight = false) {
+                    this.x = x; 
+                    this.y = y; 
+                    this.color = color; 
+                    this.size = size;
+                    this.alpha = 1; 
+                    this.decay = decay; 
+                    this.vx = 0; 
+                    this.vy = 0;
+                    this.isHighlight = isHighlight;
+                    this.flashSpeed = isHighlight ? random(0.015, 0.03) : 0;
                 }
-            }, 16);
-        }
-
-        // 普通烟花（自动/点击）
-        function createNormalFirework(x, y) {
-            const color = randomColor();
-            for (let i = 0; i < random(100, 150); i++) {
-                const p = new Particle(x, y, color);
-                p.vx = random(-5, 5); p.vy = random(-5, 5) + random(0.2, 0.5);
-                particles.push(p);
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.isHighlight) {
+                        this.alpha = Math.max(0, this.alpha - this.decay + Math.sin(Date.now() * 0.005) * this.flashSpeed);
+                    } else {
+                        this.alpha = Math.max(0, this.alpha - this.decay);
+                    }
+                    this.vy += 0.018; // 轻微重力
+                }
+                draw() {
+                    if (this.alpha <= 0) return;
+                    ctx.save(); 
+                    ctx.globalAlpha = this.alpha; 
+                    ctx.fillStyle = this.color;
+                    if (this.isHighlight) {
+                        ctx.shadowBlur = 2;
+                        ctx.shadowColor = this.color;
+                    }
+                    ctx.beginPath(); 
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); 
+                    ctx.fill(); 
+                    ctx.restore();
+                }
             }
-        }
-        // 自动烟花
-        function createAutoFireworkBatch() {
-            if (!isFirstFireworkDone) return;
-            const count = Math.floor(random(4, 10));
-            for (let i = 0; i < count; i++) {
-                setTimeout(() => {
-                    const x = random(canvas.width * 0.1, canvas.width * 0.9);
-                    const y = random(canvas.height * 0.2, canvas.height * 0.7);
-                    createNormalFirework(x, y);
-                    playBoomSound();
-                }, random(50, 200) * i);
+
+            // 祝福语文字处理
+            function createWishText(x, y, color) {
+                wishTexts.push({
+                    x: x,
+                    y: y,
+                    text: getRandomWish(),
+                    alpha: 1,
+                    color: color,
+                    size: getAdaptedTextSize()
+                });
             }
-        }
-        function startAutoFirework() {
-            createAutoFireworkBatch();
-            autoTimer = setInterval(createAutoFireworkBatch, random(2000, 4000));
-        }
-        // 点击放烟花：仅首个烟花完成后响应
-        function clickToFirework(x, y) {
-            if (!isStarted || !isFirstFireworkDone) return;
-            createNormalFirework(x, y);
-            playBoomSound();
-        }
+            function drawWishText(textObj) {
+                if (textObj.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = textObj.alpha;
+                ctx.font = `bold ${textObj.size}px PingFang SC, Microsoft YaHei, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = textObj.color;
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = textObj.color;
+                ctx.fillText(textObj.text, textObj.x, textObj.y);
+                ctx.restore();
+            }
+            function updateWishTexts() {
+                wishTexts.forEach((text, i) => {
+                    text.alpha = Math.max(0, text.alpha - TEXT_DECAY);
+                    drawWishText(text);
+                    if (text.alpha <= 0) wishTexts.splice(i, 1);
+                });
+            }
 
-        // 动画主循环：帧级更新，确保无残留
-        function animate() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            riseTrailPoints.forEach(p => p.draw());
-            particles.forEach((p, i) => { p.update(); p.draw(); if (p.alpha <= 0) particles.splice(i, 1); });
-            requestAnimationFrame(animate);
-        }
-        animate();
+            // 上升轨迹 - 优化：彻底清除无残留
+            function updateRiseTrail(y) {
+                riseTrailPoints.push(new Particle(firstFireworkX, y, randomColor(), 1, TRAIL_DECAY));
+                riseTrailPoints.forEach(p => p.update());
+                riseTrailPoints = riseTrailPoints.filter(p => p.alpha > 0);
+                riseTrailPoints.forEach(p => p.draw());
+            }
+            // 重写：彻底清空轨迹粒子，替代原衰减方式，解决尾迹残留
+            function clearRiseTrail() {
+                riseTrailPoints = []; // 直接清空数组，无任何残留
+                if (riseInterval) {
+                    clearInterval(riseInterval); // 清除定时器，停止生成新轨迹
+                    riseInterval = null;
+                }
+            }
 
-        // 初始点击开始
-        function startAll() {
-            if (isStarted) return;
-            isStarted = true;
-            startTip.classList.add('hide');
-            unlockAllAudio();
-            setTimeout(startFirstHeartFirework, 100);
-        }
+            // 心形烟花
+            function createHeartFirework(x, y) {
+                const colorSet = getHeartColorSet();
+                const totalParticles = 600; // 减少粒子数，提升流畅度
+                // 核心粒子
+                for (let i = 0; i < totalParticles * 0.7; i++) {
+                    const p = new Particle(x, y, colorSet.main, 2.5, 0.007);
+                    const theta = random(0, 2 * Math.PI);
+                    const sinTheta = Math.sin(theta);
+                    const cosTheta = Math.cos(theta);
+                    const rx = 16 * Math.pow(sinTheta, 3);
+                    const ry = 13 * cosTheta - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta);
+                    p.vx = (rx * HEART_SCALE / 8) * random(0.85, 1.05);
+                    p.vy = (-ry * HEART_SCALE / 8) * random(0.85, 1.05) + 0.1;
+                    particles.push(p);
+                }
+                // 高光粒子
+                for (let i = 0; i < totalParticles * 0.2; i++) {
+                    const p = new Particle(x, y, colorSet.light, 1.5, 0.009, true);
+                    const theta = random(0, 2 * Math.PI);
+                    const sinTheta = Math.sin(theta);
+                    const cosTheta = Math.cos(theta);
+                    const rx = 16 * Math.pow(sinTheta, 3);
+                    const ry = 13 * cosTheta - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta);
+                    p.vx = (rx * HEART_SCALE / 8) * random(1.0, 1.1);
+                    p.vy = (-ry * HEART_SCALE / 8) * random(1.0, 1.1) + 0.1;
+                    particles.push(p);
+                }
+                // 点缀粒子
+                for (let i = 0; i < totalParticles * 0.1; i++) {
+                    const p = new Particle(x, y, colorSet.dark, 2.8, 0.005);
+                    const theta = random(0, 2 * Math.PI);
+                    const sinTheta = Math.sin(theta);
+                    const cosTheta = Math.cos(theta);
+                    const rx = 16 * Math.pow(sinTheta, 3);
+                    const ry = 13 * cosTheta - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta);
+                    p.vx = (rx * HEART_SCALE / 8) * random(0.8, 0.9);
+                    p.vy = (-ry * HEART_SCALE / 8) * random(0.8, 0.9) + 0.1;
+                    particles.push(p);
+                }
+                // 显示祝福语
+                createWishText(x, y, colorSet.light);
+                playBoomSound();
+            }
 
-        // 事件绑定（PC+移动端）
-        startTip.addEventListener('click', startAll);
-        canvas.addEventListener('click', (e) => { !isStarted ? startAll() : clickToFirework(e.clientX, e.clientY); });
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            !isStarted ? startAll() : clickToFirework(touch.clientX, touch.clientY);
-        }, { passive: false });
+            // 普通烟花
+            function createNormalFirework(x, y) {
+                const color = randomColor();
+                for (let i = 0; i < random(80, 120); i++) {
+                    const p = new Particle(x, y, color);
+                    p.vx = random(-4, 4); 
+                    p.vy = random(-4, 4) + random(0.1, 0.4);
+                    particles.push(p);
+                }
+                createWishText(x, y, color);
+                playBoomSound();
+            }
+
+            // 自动燃放烟花
+            function createAutoFireworkBatch() {
+                if (!isFirstFireworkDone) return;
+                const count = Math.floor(random(3, 8));
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => {
+                        const x = random(canvas.width * 0.1, canvas.width * 0.9);
+                        const y = random(canvas.height * 0.2, canvas.height * 0.7);
+                        createNormalFirework(x, y);
+                    }, random(50, 200) * i);
+                }
+            }
+            function startAutoFirework() {
+                createAutoFireworkBatch();
+                autoTimer = setInterval(createAutoFireworkBatch, random(2000, 3500));
+            }
+
+            // 首个爱心烟花 - 修复：绑定定时器到全局变量
+            function startFirstHeartFirework() {
+                let currentY = canvas.height;
+                const riseSpeed = (canvas.height - explodeHeight) / RISE_DURATION;
+                playRiseSound();
+
+                // 把定时器赋值给全局变量，方便后续清除
+                riseInterval = setInterval(() => {
+                    currentY -= riseSpeed * 16;
+                    updateRiseTrail(currentY);
+                    if (currentY <= explodeHeight) {
+                        clearRiseTrail(); // 立即彻底清除轨迹，无残留
+                        createHeartFirework(firstFireworkX, explodeHeight);
+                        setTimeout(() => {
+                            isFirstFireworkDone = true;
+                            startAutoFirework();
+                            runningTip.classList.add('show');
+                        }, 800);
+                    }
+                }, 16);
+            }
+
+            // 点击放烟花
+            function clickToFirework(x, y) {
+                if (!isStarted || !isFirstFireworkDone) return;
+                createNormalFirework(x, y);
+            }
+
+            // 动画主循环 - 优化：轨迹为空则不绘制
+            function animate() {
+                // 半透明覆盖，实现残影
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // 仅当轨迹数组有内容时才绘制，避免空绘制残留
+                if (riseTrailPoints.length > 0) {
+                    riseTrailPoints.forEach(p => p.draw());
+                }
+                // 绘制粒子
+                particles.forEach((p, i) => { 
+                    p.update(); 
+                    p.draw(); 
+                    if (p.alpha <= 0) particles.splice(i, 1); 
+                });
+                // 绘制祝福语
+                updateWishTexts();
+                // 循环动画
+                requestAnimationFrame(animate);
+            }
+            // 启动动画循环
+            animate();
+
+            // 开始所有效果
+            function startAll() {
+                if (isStarted) return;
+                isStarted = true;
+                startTip.classList.add('hide');
+                unlockAllAudio();
+                setTimeout(startFirstHeartFirework, 300);
+            }
+
+            // 事件绑定
+            startTip.addEventListener('click', startAll);
+            // 画布点击
+            canvas.addEventListener('click', (e) => { 
+                !isStarted ? startAll() : clickToFirework(e.clientX, e.clientY); 
+            });
+            // 移动端触摸
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                !isStarted ? startAll() : clickToFirework(touch.clientX, touch.clientY);
+            }, { passive: false });
+        });
     </script>
 </body>
 </html>
