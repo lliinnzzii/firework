@@ -105,11 +105,11 @@
             ];
             let wishTexts = []; // 存储文字对象
 
-            // 配置参数（优化后更稳定）
+            // 配置参数（【关键修改】加快衰减，缩短存在时间）
             const RISE_DURATION = 3000; // 缩短上升时间，提升流畅度
             const HEART_SCALE = 3.5;
-            const TRAIL_DECAY = 0.2;
-            const TEXT_DECAY = 0.015; // 文字消失速度
+            const TRAIL_DECAY = 0.12; // 【修改1】轨迹粒子衰减翻倍，更快消失
+            const TEXT_DECAY = 0.015; // 【修改2】文字衰减翻倍+，更快消失
             let particles = [];
 
             // 画布适配
@@ -171,19 +171,19 @@
             function playRiseSound() { forcePlayAudio(riseSound); setTimeout(() => { riseSound.pause(); }, RISE_DURATION); }
             function playBoomSound() { forcePlayAudio(Math.random() > 0.5 ? boomSound1 : boomSound2); }
 
-            // 粒子类
+            // 粒子类（【修改3】增大粒子基础衰减，加快消失）
             class Particle {
-                constructor(x, y, color, size = 2, decay = random(0.004, 0.008), isHighlight = false) {
+                constructor(x, y, color, size = 2, decay = random(0.01, 0.015), isHighlight = false) {
                     this.x = x; 
                     this.y = y; 
                     this.color = color; 
                     this.size = size;
                     this.alpha = 1; 
-                    this.decay = decay; 
+                    this.decay = decay; // 基础衰减从 0.004-0.008 提升到 0.01-0.015
                     this.vx = 0; 
                     this.vy = 0;
                     this.isHighlight = isHighlight;
-                    this.flashSpeed = isHighlight ? random(0.015, 0.03) : 0;
+                    this.flashSpeed = isHighlight ? random(0.02, 0.04) : 0;
                 }
                 update() {
                     this.x += this.vx;
@@ -193,7 +193,7 @@
                     } else {
                         this.alpha = Math.max(0, this.alpha - this.decay);
                     }
-                    this.vy += 0.018; // 轻微重力
+                    this.vy += 0.03; // 【修改4】重力从 0.018 提升到 0.03，粒子更快下落消失
                 }
                 draw() {
                     if (this.alpha <= 0) return;
@@ -211,7 +211,7 @@
                 }
             }
 
-            // 【修改1】重构：接收指定的祝福语文本，不再随机生成
+            // 重构：接收指定的祝福语文本，不再随机生成
             function createWishText(x, y, color, text) {
                 wishTexts.push({
                     x: x,
@@ -259,13 +259,13 @@
                 }
             }
 
-            // 【修改2】重构心形烟花：移除内部随机祝福，改为接收文本参数
+            // 重构心形烟花：减少粒子数，配合快衰减更协调
             function createHeartFirework(x, y, wishText) {
                 const colorSet = getHeartColorSet();
-                const totalParticles = 500; // 减少粒子数，提升流畅度
+                const totalParticles = 400; // 粒子数从 500 减少到 400
                 // 核心粒子
                 for (let i = 0; i < totalParticles * 0.7; i++) {
-                    const p = new Particle(x, y, colorSet.main, 2.5, 0.007);
+                    const p = new Particle(x, y, colorSet.main, 2.5, 0.012, false);
                     const theta = random(0, 2 * Math.PI);
                     const sinTheta = Math.sin(theta);
                     const cosTheta = Math.cos(theta);
@@ -277,7 +277,7 @@
                 }
                 // 高光粒子
                 for (let i = 0; i < totalParticles * 0.2; i++) {
-                    const p = new Particle(x, y, colorSet.light, 1.5, 0.009, true);
+                    const p = new Particle(x, y, colorSet.light, 1.5, 0.014, true);
                     const theta = random(0, 2 * Math.PI);
                     const sinTheta = Math.sin(theta);
                     const cosTheta = Math.cos(theta);
@@ -289,7 +289,7 @@
                 }
                 // 点缀粒子
                 for (let i = 0; i < totalParticles * 0.1; i++) {
-                    const p = new Particle(x, y, colorSet.dark, 2.8, 0.005);
+                    const p = new Particle(x, y, colorSet.dark, 2.8, 0.01, false);
                     const theta = random(0, 2 * Math.PI);
                     const sinTheta = Math.sin(theta);
                     const cosTheta = Math.cos(theta);
@@ -304,10 +304,10 @@
                 playBoomSound();
             }
 
-            // 【修改3】重构普通烟花：移除内部随机祝福，改为接收文本参数
+            // 重构普通烟花：减少粒子数，配合快衰减更协调
             function createNormalFirework(x, y, wishText) {
                 const color = randomColor();
-                for (let i = 0; i < random(80, 120); i++) {
+                for (let i = 0; i < random(60, 90); i++) { // 粒子数从 80-120 减少到 60-90
                     const p = new Particle(x, y, color);
                     p.vx = random(-4, 4); 
                     p.vy = random(-4, 4) + random(0.1, 0.4);
@@ -318,7 +318,7 @@
                 playBoomSound();
             }
 
-            // 【修改4】新增：统一的烟花生成逻辑（判断祝福类型，选择烟花样式）
+            // 新增：统一的烟花生成逻辑（判断祝福类型，选择烟花样式）
             function createFireworkByWish(x, y) {
                 // 先随机获取祝福语
                 const wishText = getRandomWish();
@@ -330,7 +330,7 @@
                 }
             }
 
-            // 【修改5】改造自动燃放烟花：使用统一的生成逻辑
+            // 改造自动燃放烟花：使用统一的生成逻辑
             function createAutoFireworkBatch() {
                 if (!isFirstFireworkDone) return;
                 const count = Math.floor(random(3, 5));
@@ -371,16 +371,16 @@
                 }, 16);
             }
 
-            // 【修改6】改造点击放烟花：使用统一的生成逻辑
+            // 改造点击放烟花：使用统一的生成逻辑
             function clickToFirework(x, y) {
                 if (!isStarted || !isFirstFireworkDone) return;
                 createFireworkByWish(x, y);
             }
 
-            // 动画主循环 - 优化：轨迹为空则不绘制
+            // 动画主循环 - 【修改5】提高背景覆盖透明度，残影更快消失
             function animate() {
-                // 半透明覆盖，实现残影
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+                // 半透明覆盖，实现残影（透明度从 0.12 提升到 0.2，更快覆盖）
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 // 仅当轨迹数组有内容时才绘制，避免空绘制残留
                 if (riseTrailPoints.length > 0) {
