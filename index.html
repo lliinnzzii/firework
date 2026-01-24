@@ -63,13 +63,13 @@
     <!-- 【必改】替换为你的音效文件名 -->
     <audio id="riseSound" preload="metadata" style="display: none;" volume="0.1">
         <source src="rise.mp3" type="audio/mpeg">
-    
+    </audio>
     <audio id="boomSound1" preload="metadata" style="display: none;" volume="1.0">
         <source src="boom1.mp3" type="audio/mpeg">
-    
+    </audio>
     <audio id="boomSound2" preload="metadata" style="display: none;" volume="1.0">
         <source src="boom2.mp3" type="audio/mpeg">
-    
+    </audio>
 
     <script>
         // 核心元素与状态（严格流程控制）
@@ -89,7 +89,7 @@
         let explodeHeight = canvas.height / 2; // 爆炸高度：屏幕中间
 
         // 【必改】适配你的rise.mp3准确时长（ms），用音频软件查看
-        const RISE_DURATION = 400;
+        const RISE_DURATION = 4000;
         // 心形配置：旋转90°后可调整缩放（越大爱心越大）
         const HEART_SCALE = 3;
         // 优化：调大尾迹衰减速度，让粒子消失更快（从0.04→0.08，核心修改1）
@@ -179,6 +179,8 @@
                 p.vy = dy + random(0.1, 0.3);
                 particles.push(p);
             }
+            // 关键修改：在创建心形烟花粒子的同时播放爆炸音效
+            playBoomSound();
         }
 
         // 首个烟花：上升结束后立即调用尾迹清理（核心修改3）
@@ -195,7 +197,7 @@
                     // 上升停止：立即清理一次尾迹
                     clearRiseTrail();
                     createHeartFirework(firstFireworkX, explodeHeight);
-                    playBoomSound();
+                    // 移除原有的playBoomSound()调用，统一移到createHeartFirework函数内
                     // 心形爆炸消失后，再强制清理一次尾迹（双重保障）
                     setTimeout(() => {
                         clearRiseTrail();
