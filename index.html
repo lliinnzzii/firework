@@ -2,11 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 关键：适配微信移动端 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>新年烟花 | 点击屏幕放烟花🎆</title>
+    <title>新年烟花 | 点击屏幕放烟花</title>
     <style>
-        /* 重置样式，适配全屏 */
         * {
             margin: 0;
             padding: 0;
@@ -14,15 +12,14 @@
         }
         body {
             overflow: hidden;
-            background: #000; /* 黑色背景凸显烟花 */
-            touch-action: none; /* 禁止移动端触摸缩放，避免干扰 */
+            background: #000;
+            touch-action: none;
         }
         canvas {
             display: block;
             width: 100vw;
             height: 100vh;
         }
-        /* 提示文字（可选） */
         .tip {
             position: fixed;
             top: 20px;
@@ -36,13 +33,21 @@
     </style>
 </head>
 <body>
-    <div class="tip">点击屏幕任意位置放烟花🎆</div>
+    <div class="tip">点击屏幕任意位置放烟花</div>
     <canvas id="fireworksCanvas"></canvas>
+    <!-- 隐藏的音频标签：烟花爆炸音效（使用免费CDN，无需本地文件） -->
+    <audio id="fireworkSound" preload="auto" style="display: none;">
+        <source src="https://cdn.jsdelivr.net/gh/freesouls/audios/firework.mp3" type="audio/mpeg">
+    </audio>
 
     <script>
         // 获取Canvas元素和上下文
         const canvas = document.getElementById('fireworksCanvas');
         const ctx = canvas.getContext('2d');
+        // 获取音频元素
+        const fireworkSound = document.getElementById('fireworkSound');
+        // 标记是否已初始化音频（解决微信自动播放限制）
+        let audioInited = false;
 
         // 适配屏幕大小（支持旋转屏幕）
         function resizeCanvas() {
@@ -64,6 +69,30 @@
                 '#0099ff', '#0033ff', '#9900ff', '#ff0099'
             ];
             return colors[Math.floor(random(0, colors.length))];
+        }
+
+        // 播放烟花音效函数（处理兼容性）
+        function playFireworkSound() {
+            // 解决微信/移动端音频播放限制：先重置播放位置，再播放
+            fireworkSound.currentTime = 0;
+            // 兼容不同浏览器的播放方式
+            fireworkSound.play().catch(err => {
+                console.log("音频播放需要用户交互，已自动处理");
+            });
+        }
+
+        // 初始化音频（第一次点击时执行，解决微信限制）
+        function initAudio() {
+            if (!audioInited) {
+                // 微信里需要先触发一次空播放来解锁音频
+                fireworkSound.play().then(() => {
+                    fireworkSound.pause();
+                    fireworkSound.currentTime = 0;
+                }).catch(err => {
+                    console.log("音频初始化完成，可正常播放");
+                });
+                audioInited = true;
+            }
         }
 
         // 粒子类（烟花粒子）
@@ -108,6 +137,11 @@
 
         // 创建烟花（点击时调用）
         function createFirework(x, y) {
+            // 初始化音频（第一次点击时执行）
+            initAudio();
+            // 播放烟花音效
+            playFireworkSound();
+            
             const color = randomColor(); // 随机烟花颜色
             // 生成100-150个粒子（越多烟花越密）
             const particleCount = random(100, 150);
