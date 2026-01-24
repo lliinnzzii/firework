@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>新年烟花 | 点击屏幕放烟花</title>
+    <title>新年烟花 | 自动+点击放烟花🎆</title>
     <style>
         * {
             margin: 0;
@@ -33,23 +33,32 @@
     </style>
 </head>
 <body>
-    <div class="tip">点击屏幕任意位置放烟花</div>
+    <div class="tip">自动燃放烟花🎆 | 点击屏幕放烟花（仅爆炸）</div>
     <canvas id="fireworksCanvas"></canvas>
-    <!-- 隐藏的音频标签：烟花爆炸音效（使用免费CDN，无需本地文件） -->
-    <audio id="fireworkSound" preload="auto" style="display: none;">
-        <source src="https://cdn.jsdelivr.net/gh/freesouls/audios/firework.mp3" type="audio/mpeg">
+
+    <!-- 1. 烟花上升音效 -->
+    <audio id="riseSound" preload="auto" style="display: none;">
+        <source src="rise.mp3" type="audio/mpeg">
+    </audio>
+    <!-- 2. 爆炸音效1 -->
+    <audio id="boomSound1" preload="auto" style="display: none;">
+        <source src="boom1.mp3" type="audio/mpeg">
+    </audio>
+    <!-- 3. 爆炸音效2 -->
+    <audio id="boomSound2" preload="auto" style="display: none;">
+        <source src="boom2.mp3" type="audio/mpeg">
     </audio>
 
     <script>
-        // 获取Canvas元素和上下文
+        // 获取Canvas和音频元素
         const canvas = document.getElementById('fireworksCanvas');
         const ctx = canvas.getContext('2d');
-        // 获取音频元素
-        const fireworkSound = document.getElementById('fireworkSound');
-        // 标记是否已初始化音频（解决微信自动播放限制）
-        let audioInited = false;
+        const riseSound = document.getElementById('riseSound');
+        const boomSound1 = document.getElementById('boomSound1');
+        const boomSound2 = document.getElementById('boomSound2');
+        let audioInited = false; // 微信音频解锁标记
 
-        // 适配屏幕大小（支持旋转屏幕）
+        // 适配屏幕大小
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -62,7 +71,7 @@
             return Math.random() * (max - min) + min;
         }
 
-        // 颜色工具函数（随机烟花颜色）
+        // 随机颜色函数
         function randomColor() {
             const colors = [
                 '#ff0000', '#ff9900', '#ffff00', '#00ff00',
@@ -71,121 +80,135 @@
             return colors[Math.floor(random(0, colors.length))];
         }
 
-        // 播放烟花音效函数（处理兼容性）
-        function playFireworkSound() {
-            // 解决微信/移动端音频播放限制：先重置播放位置，再播放
-            fireworkSound.currentTime = 0;
-            // 兼容不同浏览器的播放方式
-            fireworkSound.play().catch(err => {
-                console.log("音频播放需要用户交互，已自动处理");
-            });
-        }
-
-        // 初始化音频（第一次点击时执行，解决微信限制）
+        // 🔴 微信音频解锁（第一次交互时执行）
         function initAudio() {
             if (!audioInited) {
-                // 微信里需要先触发一次空播放来解锁音频
-                fireworkSound.play().then(() => {
-                    fireworkSound.pause();
-                    fireworkSound.currentTime = 0;
-                }).catch(err => {
-                    console.log("音频初始化完成，可正常播放");
+                [riseSound, boomSound1, boomSound2].forEach(audio => {
+                    audio.play().then(() => {
+                        audio.pause();
+                        audio.currentTime = 0;
+                    }).catch(() => {});
                 });
                 audioInited = true;
             }
         }
 
-        // 粒子类（烟花粒子）
+        // 🔴 播放随机爆炸音效（点击烟花专用）
+        function playBoomSound() {
+            const randomBoom = Math.random() > 0.5 ? boomSound1 : boomSound2;
+            randomBoom.currentTime = 0;
+            randomBoom.play().catch(err => console.log("爆炸音效播放失败：", err));
+        }
+
+        // 🔴 播放上升+爆炸音效（自动烟花专用）
+        function playRiseAndBoomSound() {
+            // 1. 播放上升音效
+            riseSound.currentTime = 0;
+            riseSound.play().catch(err => console.log("上升音效播放失败：", err));
+
+            // 2. 延迟播放爆炸音效（匹配上升时长，可调整）
+            setTimeout(() => {
+                playBoomSound(); // 复用随机爆炸音效逻辑
+            }, 500); // 延迟500ms，可根据你的上升音效长度调整
+        }
+
+        // 生成烟花粒子（核心渲染逻辑）
+        function createFireworkParticles(x, y) {
+            const color = randomColor();
+            const particleCount = random(100, 150);
+            for (let i = 0; i < particleCount; i++) {
+                const p = new Particle(x, y, color);
+                particles.push(p);
+            }
+        }
+
+        // 粒子类
         class Particle {
             constructor(x, y, color) {
-                this.x = x; // 初始x坐标
-                this.y = y; // 初始y坐标
-                this.speed = random(1, 5); // 粒子速度
-                this.angle = random(0, Math.PI * 2); // 粒子运动角度
-                this.gravity = 0.05; // 重力（让粒子有下坠效果）
-                this.vx = Math.cos(this.angle) * this.speed; // x方向速度
-                this.vy = Math.sin(this.angle) * this.speed; // y方向速度
-                this.alpha = 1; // 透明度（逐渐消失）
-                this.decay = random(0.005, 0.01); // 透明度衰减速度
-                this.color = color; // 粒子颜色
+                this.x = x;
+                this.y = y;
+                this.speed = random(1, 5);
+                this.angle = random(0, Math.PI * 2);
+                this.gravity = 0.05;
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+                this.alpha = 1;
+                this.decay = random(0.005, 0.01);
+                this.color = color;
             }
-
-            // 更新粒子位置和状态
             update() {
-                // 加入重力，让粒子慢慢下坠
                 this.vy += this.gravity;
                 this.x += this.vx;
                 this.y += this.vy;
-                // 透明度逐渐降低
                 this.alpha -= this.decay;
             }
-
-            // 绘制粒子
             draw() {
                 ctx.save();
                 ctx.globalAlpha = this.alpha;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); // 粒子大小为2px
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
                 ctx.restore();
             }
         }
 
-        // 存储所有烟花粒子
+        // 存储粒子
         let particles = [];
 
-        // 创建烟花（点击时调用）
-        function createFirework(x, y) {
-            // 初始化音频（第一次点击时执行）
-            initAudio();
-            // 播放烟花音效
-            playFireworkSound();
+        // 🔴 点击触发烟花（仅爆炸音效）
+        function clickFirework(x, y) {
+            initAudio(); // 解锁音频
+            playBoomSound(); // 只播放爆炸音效
+            createFireworkParticles(x, y); // 生成烟花粒子
+        }
+
+        // 🔴 自动触发烟花（上升+爆炸音效，随机位置）
+        function autoFirework() {
+            initAudio(); // 解锁音频
+            // 随机生成屏幕内的位置（避免边缘）
+            const x = random(canvas.width * 0.2, canvas.width * 0.8);
+            const y = random(canvas.height * 0.2, canvas.height * 0.7);
             
-            const color = randomColor(); // 随机烟花颜色
-            // 生成100-150个粒子（越多烟花越密）
-            const particleCount = random(100, 150);
-            for (let i = 0; i < particleCount; i++) {
-                particles.push(new Particle(x, y, color));
-            }
+            playRiseAndBoomSound(); // 上升+爆炸音效
+            createFireworkParticles(x, y); // 生成烟花粒子
         }
 
         // 动画循环
         function animate() {
-            // 半透明黑色背景，让烟花有拖影效果
             ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 更新并绘制所有粒子
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.update();
                 p.draw();
-
-                // 移除透明度为0的粒子，优化性能
-                if (p.alpha <= 0) {
-                    particles.splice(i, 1);
-                }
+                if (p.alpha <= 0) particles.splice(i, 1);
             }
-
             requestAnimationFrame(animate);
         }
 
-        // 监听点击/触摸事件（适配PC和手机）
-        // PC端点击
-        canvas.addEventListener('click', (e) => {
-            createFirework(e.clientX, e.clientY);
-        });
-        // 移动端触摸
+        // 🔴 启动自动燃放（每2-3秒随机触发一次，可调整）
+        function startAutoFirework() {
+            // 立即触发一次
+            autoFirework();
+            // 定时循环触发（随机间隔2000-3000ms，避免机械感）
+            setInterval(() => {
+                autoFirework();
+            }, random(2000, 3000));
+        }
+
+        // 监听点击/触摸事件（点击放烟花）
+        canvas.addEventListener('click', (e) => clickFirework(e.clientX, e.clientY));
         canvas.addEventListener('touchstart', (e) => {
-            // 阻止默认行为（避免微信跳转）
             e.preventDefault();
             const touch = e.touches[0];
-            createFirework(touch.clientX, touch.clientY);
+            clickFirework(touch.clientX, touch.clientY);
         }, { passive: false });
 
-        // 启动动画
+        // 启动动画+自动燃放
         animate();
+        startAutoFirework();
     </script>
 </body>
 </html>
