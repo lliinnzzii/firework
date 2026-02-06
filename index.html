@@ -269,7 +269,7 @@
                 constructor(x, y, color, speed, angle, friction = 0.95, gravity = 0.08) {
                     this.x = x; this.y = y; this.color = color;
                     this.alpha = 1;
-                    this.decay = random(0.02, 0.03);
+                    this.decay = random(0.015, 0.025);
                     this.vx = Math.cos(angle) * speed;
                     this.vy = Math.sin(angle) * speed;
                     this.friction = friction;
@@ -387,7 +387,7 @@
 
             // 【核心修改4：原粒子类增强】放大粒子尺寸
             class Particle {
-                constructor(x, y, color, size = 3, decay = random(0.02, 0.03), isHighlight = false) {
+                constructor(x, y, color, size = 3, decay = random(0.018, 0.025), isHighlight = false) {
                     this.x = x; 
                     this.y = y; 
                     this.color = color; 
