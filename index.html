@@ -269,7 +269,7 @@
                 constructor(x, y, color, speed, angle, friction = 0.95, gravity = 0.08) {
                     this.x = x; this.y = y; this.color = color;
                     this.alpha = 1;
-                    this.decay = random(0.005, 0.01);
+                    this.decay = random(0.025, 0.04);
                     this.vx = Math.cos(angle) * speed;
                     this.vy = Math.sin(angle) * speed;
                     this.friction = friction;
@@ -295,7 +295,7 @@
                         for(let p of this.history) ctx.lineTo(p.x, p.y);
                         ctx.strokeStyle = this.color;
                         ctx.globalAlpha = this.alpha * 0.5; // 轨迹透明度从0.3提升到0.5，更明显
-                        ctx.lineWidth = 1.5; // 轨迹线宽从默认1增加到1.5
+                        ctx.lineWidth = 1.2; // 轨迹线宽从默认1增加到1.5
                         ctx.stroke();
                     }
                     ctx.globalAlpha = this.alpha;
@@ -313,7 +313,7 @@
                     this.x = x; this.y = y; this.color = color;
                     this.radius = 0; this.alpha = 0.6; // 透明度从0.4提升到0.6，更醒目
                 }
-                update() { this.radius += 3; this.alpha -= 0.015; }
+                update() { this.radius += 3; this.alpha -= 0.04; }
                 draw() {
                     if (this.alpha <= 0) return;
                     ctx.save();
@@ -387,7 +387,7 @@
 
             // 【核心修改4：原粒子类增强】放大粒子尺寸
             class Particle {
-                constructor(x, y, color, size = 3, decay = random(0.01, 0.015), isHighlight = false) {
+                constructor(x, y, color, size = 3, decay = random(0.03, 0.04), isHighlight = false) {
                     this.x = x; 
                     this.y = y; 
                     this.color = color; 
