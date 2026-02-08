@@ -63,6 +63,9 @@
             let firstFireworkX = canvas.width / 2;
             let explodeHeight = canvas.height / 2;
 
+            // 新增：轨迹最大长度限制（核心修改）
+            const MAX_TRAIL_LENGTH = 20; // 只保留最近20个轨迹粒子，可调整
+
             const wishList = [
                 "新年快乐", "万事顺意", "朝朝暮暮", "一生被爱", "平安喜乐",
                 "前程似锦", "笑口常开", "心想事成", "喜乐无忧", "与你同喜",
@@ -94,11 +97,11 @@
             let convergeParticles = [];
 
             const RISE_DURATION = 3000;
-            const TRAIL_DECAY = 0.15;
+            const TRAIL_DECAY = 0.2; // 调大衰减速度，让轨迹更快消失
             // 全局默认文字衰减（不影响开场四字）
             const TEXT_DECAY = 0.01;
             // 开场四字专属配置（核心新增）
-            const OPENING_WORD_SIZE_RATIO = 0.05; // 开场字尺寸（远大于默认）
+            const OPENING_WORD_SIZE_RATIO = 0.05; // 开场字尺寸
             const OPENING_WORD_DECAY = 0.005;     // 开场字衰减
             let particles = [];
 
@@ -335,9 +338,9 @@
             function createWishText(x, y, color, text, isOpeningWord = false) {
                 let size, decayRate;
                 if (isOpeningWord) {
-                    // 开场四字专属尺寸（远大于普通文字）
+                    // 开场四字专属尺寸
                     size = Math.min(canvas.width, canvas.height) * OPENING_WORD_SIZE_RATIO;
-                    // 开场四字专属衰减（慢10倍，显示更久）
+                    // 开场四字专属衰减
                     decayRate = OPENING_WORD_DECAY;
                 } else {
                     // 普通文字保持原有逻辑
@@ -426,8 +429,28 @@
                 showNextOpeningText();
             }
 
-            function updateRiseTrail(y) { riseTrailPoints.push(new Particle(firstFireworkX, y, randomColor(), 1, TRAIL_DECAY)); riseTrailPoints.forEach(p => p.update()); riseTrailPoints = riseTrailPoints.filter(p => p.alpha > 0); riseTrailPoints.forEach(p => p.draw()); }
-            function clearRiseTrail() { riseTrailPoints = []; if (riseInterval) { clearInterval(riseInterval); riseInterval = null; } }
+            // 核心修改：限制轨迹长度 + 优化轨迹更新
+            function updateRiseTrail() { 
+                // 先更新所有轨迹粒子，移除透明度为0的
+                riseTrailPoints = riseTrailPoints.filter(p => {
+                    p.update();
+                    return p.alpha > 0;
+                });
+                // 限制轨迹最大长度，超出则删除最旧的粒子
+                if (riseTrailPoints.length > MAX_TRAIL_LENGTH) {
+                    riseTrailPoints.splice(0, riseTrailPoints.length - MAX_TRAIL_LENGTH);
+                }
+                // 绘制剩余的轨迹粒子
+                riseTrailPoints.forEach(p => p.draw()); 
+            }
+
+            function clearRiseTrail() { 
+                riseTrailPoints = []; 
+                if (riseInterval) { 
+                    clearInterval(riseInterval); 
+                    riseInterval = null; 
+                } 
+            }
 
             function createAutoFireworkBatch() {
                 if (!isFirstFireworkDone || isShowingOpeningText) return;
@@ -447,35 +470,40 @@
             function startFirstHeartFirework() {
                 convergeParticles = []; 
                 isConverging = false;
-                // 新增：初始化烟花完成计数（仅在函数内部）
                 let completedFireworkCount = 0;
                 const TOTAL_FIRST_FIREWORKS = 4;
 
+                // 核心：固定 4 个不同高度（从低 → 高，速度相同则依次炸开）
+                const heights = [0.45, 0.5, 0.35, 0.4]; 
+                const speedratios = [1.1, 0.9, 1.1, 0.9];
                 const positions = [
                     {x: canvas.width*0.2, text: "小", isConverge: true, isHeart: false},
                     {x: canvas.width*0.4, text: "薄", isConverge: true, isHeart: true},
                     {x: canvas.width*0.6, text: "同", isConverge: true, isHeart: true},
                     {x: canvas.width*0.8, text: "学", isConverge: true, isHeart: false}
                 ];
-                
-                positions.forEach(pos => {
+
+                // 统一上升速度（所有烟花完全一样，保证公平）
+                const baseTargetY = canvas.height * 0.35; // 用最高处算基准速度
+                const riseSpeed = (canvas.height - baseTargetY) / 4500 * 16;
+
+                positions.forEach((pos, index) => {
                     let currentY = canvas.height;
                     const targetX = pos.x;
-                    const targetY = random(canvas.height * 0.3, canvas.height * 0.5);
-                    const riseSpeed = (canvas.height - targetY) / 2000 * 16;
+                    // 按序号取不同高度：index 0 最低，index 3 最高
+                    const targetY = canvas.height * heights[index];
+                    
                     playRiseSound();
                     
                     const localInterval = setInterval(() => {
-                        currentY -= riseSpeed;
+                        currentY -= riseSpeed * speedratios[index];
                         riseTrailPoints.push(new Particle(targetX, currentY, '#ffcc00', 1, TRAIL_DECAY));
                         
                         if (currentY <= targetY) {
                             clearInterval(localInterval);
                             riseTrailPoints = riseTrailPoints.filter(p => Math.abs(p.x - targetX) > 5);
-                            // 核心修改：标记为开场字，启用专属尺寸和衰减
                             createNewFirework(targetX, targetY, pos.isHeart, pos.text, pos.isConverge, true);
                             
-                            // 核心修复：计数+1，4个都完成后触发汇聚
                             completedFireworkCount++;
                             if (completedFireworkCount === TOTAL_FIRST_FIREWORKS) {
                                 setTimeout(() => {
@@ -497,7 +525,8 @@
                 ctx.fillStyle = 'rgba(0,0,0,0.2)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 drawStars();
-                if (riseTrailPoints.length > 0) riseTrailPoints.forEach(p => p.draw());
+                // 核心修改：调用优化后的轨迹更新函数
+                updateRiseTrail();
                 particles.forEach((p, i) => { p.update(); p.draw(); if (p.alpha <= 0) particles.splice(i, 1); });
                 updateNewFireworkElements();
                 updateWishTexts();
