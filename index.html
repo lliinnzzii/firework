@@ -69,7 +69,7 @@
             const wishList = [
                 "新年快乐", "万事顺意", "朝朝暮暮", "一生被爱", "平安喜乐",
                 "前程似锦", "笑口常开", "心想事成", "喜乐无忧", "与你同喜",
-                "小薄小猫", "小薄美女", "小薄小猫", "小薄同学", "小薄同学"
+                "小薄同学", "小薄同学", "小薄同学", "小薄同学", "小薄同学"
             ];
             let wishTexts = [];
 
@@ -321,8 +321,7 @@
                             const angle = random(0, Math.PI * 2) + angleOffset;
                             const vx = 16 * Math.pow(Math.sin(angle), 3) * 0.28; // 稍微放大缩放系数，让心形更明显
                             const vy = -(13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)) * 0.28;
-                            // 强制禁用摩擦、重力（参数直接传1和0）
-                            const p = new NewParticle(x, y, color, 0, 0, 0.96, 0.04, isConverge);
+                            const p = new NewParticle(x, y, color, 0, 0, 0.95, 0.04, isConverge);
                             // 直接赋值速度，无任何随机缩放（和开场一致）
                             p.vx = vx;
                             p.vy = vy; 
