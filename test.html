@@ -69,7 +69,7 @@
             const wishList = [
                 "新年快乐", "万事顺意", "朝朝暮暮", "一生被爱", "平安喜乐",
                 "前程似锦", "笑口常开", "心想事成", "喜乐无忧", "与你同喜",
-                "小薄同学", "小薄同学", "小薄同学", "小薄同学", "小薄同学"
+                "小薄小猫", "小薄美女", "小薄小猫", "小薄同学", "小薄同学"
             ];
             let wishTexts = [];
 
@@ -200,15 +200,15 @@
                 constructor(x, y, color, speed, angle, friction = 0.95, gravity = 0.08, isConverge = false) {
                     this.x = x; this.y = y; this.color = color;
                     this.alpha = 1;
-                    this.decay = isConverge ? 0 : random(0.015, 0.025); // 汇聚粒子不自衰减
+                    this.decay = isConverge ? 0 : random(0.015, 0.025);
                     this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
                     this.friction = friction; this.gravity = isConverge ? 0 : gravity;
                     this.history = []; this.isConverge = isConverge;
                     this.targetPoint = null; this.speed = isConverge ? random(1, 2) : speed;
 
                     this.flashTime = 0;
-                    this.isFadingOut = false; // 由文字消失触发淡出
-                    this.fadeSpeed = 0.01;   // 你设定的缓慢淡出速度
+                    this.isFadingOut = false;
+                    this.fadeSpeed = 0.01;
                 }
 
                 update() {
@@ -297,33 +297,61 @@
                 }
             }
 
-            // 新增参数：isOpeningWord 标记是否是开场四字
+            // 核心修改：分两次炸开粒子 + 双色随机 + 层次感
             function createNewFirework(x, y, isHeart = false, customWish = null, isConverge = false, isOpeningWord = false) {
-                const hue = random(0, 360);
-                const color = `hsl(${hue},100%,65%)`;
-                const wish = customWish || getRandomWish();
-                rings.push(new Ring(x, y, color));
-                rings.push(new Ring(x, y, `hsl(${hue},100%,80%)`));
+                // 生成两个随机颜色（两次炸开分别用）
+                const color1 = randomColor();
+                const color2 = randomColor();
+                // 圆环也分两次生成，增强层次感
+                rings.push(new Ring(x, y, color1));
+                setTimeout(() => {
+                    rings.push(new Ring(x, y, color2));
+                }, 80);
+                
                 playSound(Math.random() > 0.5 ? boomSound1 : boomSound2, 0.8);
+                // 延迟播放第二个爆炸声（可选，增强听觉层次）
+                setTimeout(() => {
+                    playSound(Math.random() > 0.5 ? boomSound1 : boomSound2, 0.6);
+                }, 100);
 
-                if (isHeart || wish === "小薄同学") {
-                    for (let i = 0; i < 120; i++) {
-                        const angle = random(0, Math.PI * 2);
-                        const vx = 16 * Math.pow(Math.sin(angle), 3) * 0.28;
-                        const vy = -(13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)) * 0.28;
-                        const p = new NewParticle(x, y, `hsl(${hue},100%,75%)`, 0, 0, 0.96, 0.04, isConverge);
-                        p.vx = vx; p.vy = vy; newParticles.push(p);
-                        if (isConverge) convergeParticles.push(p);
+                // 生成粒子的通用函数
+                const generateParticles = (color, count, speedMin, speedMax, angleOffset = 0) => {
+                    for (let i = 0; i < count; i++) {
+                        if (isHeart || customWish === "小薄同学") {
+                            const angle = random(0, Math.PI * 2) + angleOffset;
+                            const vx = 16 * Math.pow(Math.sin(angle), 3) * 0.28; // 稍微放大缩放系数，让心形更明显
+                            const vy = -(13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)) * 0.28;
+                            // 强制禁用摩擦、重力（参数直接传1和0）
+                            const p = new NewParticle(x, y, color, 0, 0, 0.96, 0.04, isConverge);
+                            // 直接赋值速度，无任何随机缩放（和开场一致）
+                            p.vx = vx;
+                            p.vy = vy; 
+                            newParticles.push(p);
+                            if (isConverge) convergeParticles.push(p);
+                        } else {
+                            // 普通烟花保留原有逻辑
+                            const angle = random(0, Math.PI * 2) + angleOffset;
+                            const p = new NewParticle(x, y, color, random(speedMin, speedMax), angle, 0.95, 0.08, isConverge);
+                            newParticles.push(p);
+                            if (isConverge) convergeParticles.push(p);
+                        }
                     }
+                };
+
+                // 第一次炸开（60%粒子，速度稍慢，基础角度）
+                const firstCount = isHeart || customWish === "小薄同学" ? 72 : 60;
+                generateParticles(color1, firstCount, 2, 5);
+
+                // 第二次炸开（40%粒子，延迟100ms，速度稍快，角度偏移增加层次）
+                const secondCount = isHeart || customWish === "小薄同学" ? 48 : 40;
+                if (isHeart || customWish === "小薄同学") {
+                    generateParticles(color2, secondCount, 4, 8); // 无角度偏移
                 } else {
-                    for (let i = 0; i < 100; i++) {
-                        const p = new NewParticle(x, y, color, random(2, 7), random(0, Math.PI * 2), 0.95, 0.08, isConverge);
-                        newParticles.push(p);
-                        if (isConverge) convergeParticles.push(p);
-                    }
+                    generateParticles(color2, secondCount, 4, 8, Math.PI / 8); // 普通烟花保留偏移
                 }
+
                 // 传递isOpeningWord参数给文字创建函数
-                createWishText(x, y, `hsl(${hue},100%,85%)`, wish, isOpeningWord);
+                createWishText(x, y, `hsl(${random(0, 360)},100%,85%)`, customWish || getRandomWish(), isOpeningWord);
             }
 
             class Particle {
@@ -459,8 +487,10 @@
                     setTimeout(() => {
                         const x = random(canvas.width * 0.1, canvas.width * 0.9);
                         const y = random(canvas.height * 0.2, canvas.height * 0.7);
-                        // 普通烟花不标记为开场字，保持原有效果
-                        createNewFirework(x, y);
+                        const wish = getRandomWish();
+                        const isHeartWish = wish === "小薄同学";
+                        // 关键：isConverge=false（不汇聚），isHeart=isHeartWish（启用心形粒子逻辑）
+                        createNewFirework(x, y, isHeartWish, wish, false, false);
                     }, random(50, 200) * i);
                 }
             }
@@ -519,7 +549,13 @@
                 });
             }
 
-            function clickToFirework(x, y) { if (!isStarted || !isFirstFireworkDone || isShowingOpeningText) return; createNewFirework(x, y); }
+            function clickToFirework(x, y) { 
+                if (!isStarted || !isFirstFireworkDone || isShowingOpeningText) return; 
+                const wish = getRandomWish();
+                const isHeartWish = wish === "小薄同学";
+                // 关键：isConverge=false（不汇聚），isHeart=isHeartWish（启用心形粒子逻辑）
+                createNewFirework(x, y, isHeartWish, wish, false, false); 
+            }
 
             function animate() {
                 ctx.fillStyle = 'rgba(0,0,0,0.2)';
